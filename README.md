@@ -7,6 +7,6 @@ PanDownload Web, built with CloudFlare Workers
 ```
 # Thanks
 
-[PanDownload](https://pandownload.com): static pages
+[PanDownload](https://pandownload.com)
 
 [baiduwp](https://github.com/TkzcM/baiduwp)
