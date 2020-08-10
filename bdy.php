@@ -1,0 +1,83 @@
+<?
+    function Http($url,$data=null,$header=null,$rh=0,$nb=0){
+        $ch=curl_init();
+        curl_setopt($ch,CURLOPT_URL,$url);
+        curl_setopt($ch,CURLOPT_HEADER,$rh);
+        curl_setopt($ch,CURLOPT_NOBODY,$nb);
+        curl_setopt($ch,CURLOPT_RETURNTRANSFER,1);
+        $header==null?:curl_setopt($ch,CURLOPT_HTTPHEADER,$header);
+        $data==null?:(curl_setopt($ch,CURLOPT_POST,1)&&curl_setopt($ch,CURLOPT_POSTFIELDS,$data));
+        $rdata=curl_exec($ch);
+        curl_close($ch);
+        return $rdata;
+    }
+    $STOKEN='c0f18c873c4c9c391153beaee02b446a57ec96da31883d93e41bbea9111acc1c';
+    $BDUSS='TY4NkNvaEIwcWhTZTZBfjVQSGwxTHpqRU84R3kwUmdlS3FrZEsxMEFXbmtURmxmRUFBQUFBJCQAAAAAAQAAAAEAAACij~QgsK7l-jY0MzY5MgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOS~MV~kvzFfd';
+    if((isset($_GET['d'],$_GET['p'])&&$_GET['d']!=''&&$_GET['p']!='')||(isset($_GET['s'])&&$_GET['s']!='')){
+        if(isset($_GET['s'])&&$_GET['s']!=''){
+            $sl=$_GET['s'];
+            if(preg_match('/baidu.com\/s\/(.*?) /',$sl,$sd)&&preg_match('/码: (.*?)$/',$sl,$pw)){
+                $sid=trim($sd[1]);
+                $pwd=trim($pw[1]);
+                if(substr($sid,0,1)==1){
+                    $sid=substr($sid,1,strlen($sid));
+                }
+            }else{
+                exit;
+            }
+        }else if(isset($_GET['d'])&&$_GET['d']!=''){
+            $sid=$_GET['d'];
+            if(substr($sid,0,1)==1){
+                $sid=substr($sid,1,strlen($sid));
+            }
+            $pwd=$_GET['p'];
+        }else{
+            http_response_code(404);
+            exit;
+        }
+        $url1='https://pan.baidu.com/share/verify?surl='.$sid;
+        $data1='pwd='.$pwd;
+        $header1=array(
+            'User-Agent:netdisk',
+            'Referer:https://pan.baidu.com/disk/home'
+        );
+        $r1=json_decode(Http($url1,$data1,$header1),1);
+        if($r1['errno']==0){
+            $randsk=$r1['randsk'];
+            $url2='https://pan.baidu.com/s/1'.$sid;
+            $header2=array(
+                'Cookie:STOKEN='.$STOKEN.';BDUSS='.$BDUSS.';BDCLND='.$randsk,
+                'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.514.1919.810 Safari/537.36'
+            );
+            $r2=Http($url2,null,$header2);
+            if(preg_match('/yunData.setData\(({.+)\);/',$r2,$m2)){
+                $s=json_decode($m2[1],1);
+                $sign=$s['sign'];$timestamp=$s['timestamp'];$shareid=$s['shareid'];$uk=$s['uk'];
+                $url3='https://pan.baidu.com/share/list?app_id=250528&channel=chunlei&clienttype=0&desc=0&num=100&order=name&page=1&root=1&shareid='.$shareid.'&showempty=0&uk='.$uk.'&web=1';
+                $r3=json_decode(Http($url3,null,$header2),1);
+                if($r3['errno']==0){
+                    $fsid=$r3['list'][0]['fs_id'];
+                    $url4='https://pan.baidu.com/api/sharedownload?app_id=250528&channel=chunlei&clienttype=12&sign='.$sign.'&timestamp='.$timestamp.'&web=1';
+                    $data4='encrypt=0&extra={"sekey":"'.$randsk.'"}&fid_list=['.$fsid.']&primaryid='.$shareid.'&uk='.$uk.'&product=share&type=nolimit';
+                    $r4=json_decode(Http($url4,$data4,$header2),1);
+                    if($r4['errno']==0){
+                        $url5=$r4['list'][0]['dlink'];
+                        $header5=array(
+                            'User-Agent:LogStatistic',
+                            'Cookie:BDUSS='.$BDUSS
+                        );
+                        $r5=Http($url5,null,$header5,1,0);
+                        if(preg_match('/Location:(.*?)\\r\\n/',$r5,$m5)){
+                            if(isset($_GET['r'])){
+                                header('Location:'.$m5[1]);
+                            }else{
+                                echo trim($m5[1]);
+                            }
+                        }
+                    }                    
+                }
+            }
+        }
+
+    }
+?>
