@@ -11,29 +11,98 @@
         curl_close($ch);
         return $rdata;
     }
-    $STOKEN='c0f18c873c4c9c391153beaee02b446a57ec96da31883d93e41bbea9111acc1c';
-    $BDUSS='TY4NkNvaEIwcWhTZTZBfjVQSGwxTHpqRU84R3kwUmdlS3FrZEsxMEFXbmtURmxmRUFBQUFBJCQAAAAAAQAAAAEAAACij~QgsK7l-jY0MzY5MgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOS~MV~kvzFfd';
-    if((isset($_GET['d'],$_GET['p'])&&$_GET['d']!=''&&$_GET['p']!='')||(isset($_GET['s'])&&$_GET['s']!='')){
-        if(isset($_GET['s'])&&$_GET['s']!=''){
-            $sl=$_GET['s'];
-            if(preg_match('/baidu.com\/s\/(.*?) /',$sl,$sd)&&preg_match('/码: (.*?)$/',$sl,$pw)){
-                $sid=trim($sd[1]);
-                $pwd=trim($pw[1]);
-                if(substr($sid,0,1)==1){
-                    $sid=substr($sid,1,strlen($sid));
-                }
-            }else{
-                exit;
-            }
-        }else if(isset($_GET['d'])&&$_GET['d']!=''){
-            $sid=$_GET['d'];
-            if(substr($sid,0,1)==1){
-                $sid=substr($sid,1,strlen($sid));
-            }
-            $pwd=$_GET['p'];
-        }else{
-            http_response_code(404);
+    $path='bdy.inf';
+    $appname='bdy.get';
+    $version='1.0.0p';
+    if(isset($_GET['h'])){
+        echo $appname.'/'.$version.
+        '<br>参数：<br>
+        -B BDUSS<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Cookie:BDUSS：在baidu.com下<br>
+        -S STOKEN<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Cookie:STOKEN：在pan.baidu.com下<br>
+        -c	创建或修改BDUSS和STOKEN<br>
+        -d ShareID<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ShareID：分享ID<br>
+        -h	显示帮助<br>
+        -p Password<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Password：提取码<br>
+        -t	测试BDUSS和STOKEN<br>
+        -v	显示版本<br>
+      参数优先级h>v>c>t。下载文件需要设置User-Agent:LogStatistic<br>
+        ';exit;
+    }else if(isset($_GET['v'])){
+        echo $appname.'/'.$version;exit;
+    }
+    if((isset($_GET['B'])&&$_GET['B']!='')&&(isset($_GET['S'])&&$_GET['S']!='')){
+        $STOKEN=$_GET['S'];
+        $BDUSS=$_GET['B'];
+    }else if((isset($_POST['B'])&&$_POST['B']!='')&&(isset($_POST['S'])&&$_POST['S']!='')){
+        $BDUSS=$_POST['B'];
+        $STOKEN=$_POST['S'];
+        $r=file_put_contents($path,$BDUSS.';;'.$STOKEN);
+        if($r==false){
+            echo '写入失败!!';
             exit;
+        }
+    }else{
+        if(file_exists($path)){
+            $s=file_get_contents($path);
+            $s=explode(';;',$s);
+            if(count($s)==2){
+                $BDUSS=$s[0];
+                $STOKEN=$s[1];
+            }
+        }else{
+            echo '<span>首次使用需要配置信息，请输入以下信息：</span>
+            <form action="" method="POST">
+            <span>BDUSS:</span><input type="text" name="B" placeholder="BDUSS"><br>
+            <span>STOKEN:</span><input type="text" name="S" placeholder="STOKEN"><br>
+            <input type="submit" value="Set."></form>';
+            exit;
+        }
+    }
+    if(isset($_GET['c'])&&!isset($_POST['B'])){
+        echo '<span>创建或修改以下信息：</span>
+        <form action="" method="POST">
+        <span>BDUSS:</span><input type="text" name="B" placeholder="BDUSS"><br>
+        <span>STOKEN:</span><input type="text" name="S" placeholder="STOKEN"><br>
+        <input type="submit" value="Set."></form>';
+        exit;
+    }
+    if(isset($_GET['t'])){
+        if(!isset($_GET['B'])||$_GET['B']==''||!isset($_GET['S'])||$_GET['S']==''){
+            if(file_exists($path)){
+                $s=file_get_contents($path);
+                $s=explode(';;',$s);
+                if(count($s)==2){
+                    $BDUSS=$s[0];
+                    $STOKEN=$s[1];
+                }
+            }
+        }
+        $h=array(
+            'Cookie:STOKEN='.$STOKEN.';BDUSS='.$BDUSS
+        );
+        $u='https://pan.baidu.com/disk/home';
+        $r=Http($u,null,$h);
+        if(mb_strlen($r)>23){
+            echo '登陆信息有效!!';exit;
+        }else{
+            echo '登陆信息无效!!';exit;
+        }
+    }
+    if((isset($_GET['d'],$_GET['p'])&&$_GET['d']!=''&&$_GET['p']!='')){
+        $sl=$_GET['d'];
+        if(preg_match('/baidu.com\/s\/(.*?) /',$sl,$sd)&&preg_match('/码: (.*?)$/',$sl,$pw)){
+            $sid=trim($sd[1]);
+            $pwd=trim($pw[1]);
+        }else{
+            $sid=$_GET['d'];
+            $pwd=$_GET['p'];
+        }
+        if(substr($sid,0,1)==1){
+            $sid=substr($sid,1,strlen($sid));
         }
         $url1='https://pan.baidu.com/share/verify?surl='.$sid;
         $data1='pwd='.$pwd;
@@ -73,11 +142,19 @@
                             }else{
                                 echo trim($m5[1]);
                             }
+                        }else{
+                            echo '提取码错误或文件失效或登陆失效!!';
                         }
                     }                    
                 }
             }
         }
-
+    }else{
+        echo '<span>输入以下信息来获取直链：</span>
+        <form action="" method="GET">
+        <span>ShareID:</span><input type="text" name="d" placeholder="分享ID，或者分享链接"><br>
+        <span>Password:</span><input type="text" name="p" placeholder="提取码"><br>
+        <input type="submit" value="Get."></form>';
+        exit;
     }
 ?>
